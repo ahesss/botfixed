@@ -5,6 +5,15 @@ from email.mime.multipart import MIMEMultipart
 import threading
 import json
 import os
+import socket
+
+# Paksa menggunakan IPv4 (Solusi untuk Errno 101: Network is unreachable)
+old_getaddrinfo = socket.getaddrinfo
+def new_getaddrinfo(*args, **kwargs):
+    responses = old_getaddrinfo(*args, **kwargs)
+    return [response for response in responses if response[0] == socket.AF_INET]
+socket.getaddrinfo = new_getaddrinfo
+
 # GANTI DENGAN TOKEN BOT ANDA
 TELEGRAM_BOT_TOKEN = '8718125466:AAEJjDGXe5utkk3gm0b2IlJ_oBH0Pzsl3eo'
 TARGET_EMAIL = 'support@support.whatsapp.com'
@@ -47,9 +56,8 @@ def send_whatsapp_email(sender_email, app_password, phone_number):
         body = f"saya ingin login akun WhatsApp saya, tolong bantu saya login akun WhatsApp saya : {phone_number}"
         msg.attach(MIMEText(body, 'plain'))
         
-        print(f"[{phone_number}] Menghubungkan ke smtp.gmail.com (timeout 15s)...")
-        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
-        server.starttls()
+        print(f"[{phone_number}] Menghubungkan ke smtp.gmail.com via SSL (Port 465)...")
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
         print(f"[{phone_number}] Login dengan Sandi Aplikasi...")
         server.login(sender_email, app_password)
         print(f"[{phone_number}] Mengirim pesan ke server...")
