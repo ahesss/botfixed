@@ -56,8 +56,20 @@ def send_whatsapp_email(sender_email, app_password, phone_number):
         body = f"saya ingin login akun WhatsApp saya, tolong bantu saya login akun WhatsApp saya : {phone_number}"
         msg.attach(MIMEText(body, 'plain'))
         
-        print(f"[{phone_number}] Menghubungkan ke smtp.gmail.com via SSL (Port 465)...")
-        server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
+        print(f"[{phone_number}] Mencari rute terbaik ke server Gmail (Port 587/465)...")
+        server = None
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
+            server.starttls()
+            print(f"[{phone_number}] Terhubung via Port 587 (TLS).")
+        except Exception as e1:
+            print(f"[{phone_number}] Port 587 gagal ({e1}). Mencoba Port 465...")
+            try:
+                server = smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15)
+                print(f"[{phone_number}] Terhubung via Port 465 (SSL).")
+            except Exception as e2:
+                raise Exception(f"Hosting Anda memblokir koneksi email keluar.\n(Trace 587: {e1})\n(Trace 465: {e2})")
+
         print(f"[{phone_number}] Login dengan Sandi Aplikasi...")
         server.login(sender_email, app_password)
         print(f"[{phone_number}] Mengirim pesan ke server...")
