@@ -20,6 +20,7 @@ def get_session(chat_id):
 
 def send_whatsapp_email(sender_email, app_password, phone_number):
     try:
+        print(f"[{phone_number}] Menyiapkan email dari {sender_email}")
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = TARGET_EMAIL
@@ -28,13 +29,18 @@ def send_whatsapp_email(sender_email, app_password, phone_number):
         body = f"saya ingin login akun WhatsApp saya, tolong bantu saya login akun WhatsApp saya : {phone_number}"
         msg.attach(MIMEText(body, 'plain'))
         
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        print(f"[{phone_number}] Menghubungkan ke smtp.gmail.com (timeout 15s)...")
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=15)
         server.starttls()
+        print(f"[{phone_number}] Login dengan Sandi Aplikasi...")
         server.login(sender_email, app_password)
+        print(f"[{phone_number}] Mengirim pesan ke server...")
         server.send_message(msg)
         server.quit()
+        print(f"[{phone_number}] Berhasil terkirim!")
         return True, "Email berhasil dikirim!"
     except Exception as e:
+        print(f"[{phone_number}] ERROR: {str(e)}")
         return False, str(e)
 
 @bot.message_handler(commands=['start', 'help'])
@@ -101,11 +107,18 @@ def handle_all_text(message):
             bot.send_message(chat_id, f"⏳ Memproses pengajuan email ke WhatsApp Support menggunakan akun `{session['email']}` untuk nomor `{text}`...", parse_mode="Markdown")
             
             def process_email():
-                success, msg = send_whatsapp_email(session['email'], session['app_pwd'], text)
-                if success:
-                    bot.send_message(chat_id, f"✅ *BERHASIL TERKIRIM!*\nNomor: `{text}`\nEmail Pengirim: `{session['email']}`", parse_mode="Markdown")
-                else:
-                    bot.send_message(chat_id, f"❌ *GAGAL!*\nDetail Kesalahan: `{msg}`\n\nJika kata sandi/email Anda salah, silakan atur ulang menggunakan perintah /setup", parse_mode="Markdown")
+                try:
+                    success, msg = send_whatsapp_email(session['email'], session['app_pwd'], text)
+                    if success:
+                        bot.send_message(chat_id, f"✅ *BERHASIL TERKIRIM!*\nNomor: `{text}`\nEmail Pengirim: `{session['email']}`", parse_mode="Markdown")
+                    else:
+                        bot.send_message(chat_id, f"❌ *GAGAL!*\nDetail Kesalahan: `{msg}`\n\nJika kata sandi/email Anda salah, silakan atur ulang menggunakan perintah /setup\n_(Catatan: Jika error Timeout, server hosting Anda mungkin memblokir port 587)_", parse_mode="Markdown")
+                except Exception as ex:
+                    print(f"Fatal error pada proses email: {ex}")
+                    try:
+                        bot.send_message(chat_id, f"❌ *CRITICAL ERROR!*\nDetail: `{str(ex)}`", parse_mode="Markdown")
+                    except:
+                        pass
                     
             threading.Thread(target=process_email).start()
         else:
