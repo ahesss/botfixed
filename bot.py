@@ -3,20 +3,38 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import threading
-
+import json
+import os
 # GANTI DENGAN TOKEN BOT ANDA
 TELEGRAM_BOT_TOKEN = '8718125466:AAEJjDGXe5utkk3gm0b2IlJ_oBH0Pzsl3eo'
 TARGET_EMAIL = 'support@support.whatsapp.com'
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
-# Menyimpan Data/Status Pengguna Saat Ini
-user_sessions = {}
+# Menyimpan Data/Status Pengguna Secara Permanen
+SESSION_FILE = "user_sessions.json"
+
+def load_sessions():
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'r') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_sessions():
+    with open(SESSION_FILE, 'w') as f:
+        json.dump(user_sessions, f)
+
+user_sessions = load_sessions()
 
 def get_session(chat_id):
-    if chat_id not in user_sessions:
-        user_sessions[chat_id] = {'step': 'none', 'email': None, 'app_pwd': None}
-    return user_sessions[chat_id]
+    c_id = str(chat_id)
+    if c_id not in user_sessions:
+        user_sessions[c_id] = {'step': 'none', 'email': None, 'app_pwd': None}
+        save_sessions()
+    return user_sessions[c_id]
 
 def send_whatsapp_email(sender_email, app_password, phone_number):
     try:
@@ -61,6 +79,7 @@ def command_setup(message):
     chat_id = message.chat.id
     session = get_session(chat_id)
     session['step'] = 'wait_email'
+    save_sessions()
     bot.send_message(chat_id, "📧 Kirimkan *Alamat Email Gmail* Anda (contoh: nama@gmail.com):", parse_mode="Markdown")
 
 @bot.message_handler(commands=['status'])
@@ -85,6 +104,7 @@ def handle_all_text(message):
         if "@" in text and "." in text:
             session['email'] = text
             session['step'] = 'wait_pwd'
+            save_sessions()
             # Hapus pesan email (opsional)
             try: bot.delete_message(chat_id, message.message_id) 
             except: pass
@@ -96,6 +116,7 @@ def handle_all_text(message):
     elif step == 'wait_pwd':
         session['app_pwd'] = text.replace(" ", "")
         session['step'] = 'ready'
+        save_sessions()
         # Hapus pesan kata sandi demi keamanan
         try: bot.delete_message(chat_id, message.message_id)
         except: pass
